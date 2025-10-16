@@ -97,13 +97,71 @@
       padding: 2px 6px;
       border-radius: 4px;
     }
+
+    /* 🔊 Tiny audio toggle button */
+    .audio-toggle {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 9999;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      border: 1px solid #00ffff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      backdrop-filter: blur(2px);
+    }
+    .audio-toggle:hover { box-shadow: 0 0 10px #00ffff; }
   </style>
+
+  <!-- Token/API boot + link propagation -->
+  <script>
+    (function () {
+      const qs = new URLSearchParams(location.search);
+      const tokenFromUrl = qs.get('token') || '';
+      const apiFromUrl = (qs.get('api') || '').replace(/\/+$/, '');
+
+      // Persist/reuse token
+      let token = tokenFromUrl;
+      try {
+        if (!token) token = localStorage.getItem('sv13.token') || '';
+        if (tokenFromUrl) localStorage.setItem('sv13.token', tokenFromUrl);
+      } catch {}
+
+      // Expose for any future scripts (if you add stats/rpc later)
+      window.PLAYER_TOKEN = token;
+      window.API_BASE = apiFromUrl || '/api';
+
+      function withParams(href) {
+        try {
+          const u = new URL(href, location.origin);
+          if (token) u.searchParams.set('token', token);
+          if (apiFromUrl) u.searchParams.set('api', apiFromUrl);
+          return u.toString();
+        } catch {
+          const sep = href.includes('?') ? '&' : '?';
+          const parts = [];
+          if (token) parts.push('token=' + encodeURIComponent(token));
+          if (apiFromUrl) parts.push('api=' + encodeURIComponent(apiFromUrl));
+          return parts.length ? href + sep + parts.join('&') : href;
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const hub = document.getElementById('backToHub');
+        if (hub && hub.href) hub.href = withParams(hub.href);
+      });
+    })();
+  </script>
 </head>
 <body>
   <div class="snow-effect"></div>
 
   <!-- 🔗 Back to Hub Button -->
-  <a href="https://madv313.github.io/HUB-UI/" class="back-to-hub">← Back to Hub</a>
+  <a href="https://madv313.github.io/HUB-UI/" class="back-to-hub" id="backToHub">← Back to Hub</a>
 
   <h1>SV13 TCG RULEBOOK</h1>
 
@@ -181,5 +239,73 @@
       <li><strong>Bear Trap + Combat Boots:</strong> Nullifies trap damage based on gear tag mechanics.</li>
     </ul>
   </div>
+
+  <!-- 🔊 Background music -->
+  <audio
+    id="rb-bgm"
+    src="audio/bg/surviving_chernarus.mp3"
+    autoplay
+    muted
+    playsinline
+    loop
+    preload="auto"></audio>
+  <button id="rbAudioToggle" class="audio-toggle" aria-label="Mute background music">🔇</button>
+
+  <script>
+    // Lightweight autoplay-safe music control
+    (function setupRulebookMusic() {
+      const audio = document.getElementById('rb-bgm');
+      const btn   = document.getElementById('rbAudioToggle');
+      if (!audio || !btn) return;
+
+      const STORE_KEY = 'sv13_rulebook_bgm.muted';
+
+      // Restore saved preference
+      try {
+        const stored = localStorage.getItem(STORE_KEY);
+        if (stored !== null) audio.muted = (stored === 'true');
+      } catch {}
+
+      updateBtn();
+      audio.play().catch(() => { /* will unlock on first gesture */ });
+
+      // First user gesture: ensure playback; unmute unless user chose mute before
+      const unlock = () => {
+        audio.play().catch(() => {});
+        try {
+          if (localStorage.getItem(STORE_KEY) !== 'true') {
+            audio.muted = false;
+            updateBtn();
+          }
+        } catch {}
+        cleanupUnlock();
+      };
+      function cleanupUnlock() {
+        window.removeEventListener('pointerdown', unlock, opt);
+        window.removeEventListener('keydown', unlock);
+        document.removeEventListener('visibilitychange', vis);
+      }
+      const opt = { passive: true };
+      window.addEventListener('pointerdown', unlock, opt);
+      window.addEventListener('keydown', unlock);
+
+      // Safari quirk: retry when tab becomes visible
+      const vis = () => { if (!document.hidden) audio.play().catch(() => {}); };
+      document.addEventListener('visibilitychange', vis);
+
+      // Manual toggle
+      btn.addEventListener('click', () => {
+        audio.muted = !audio.muted;
+        try { localStorage.setItem(STORE_KEY, String(audio.muted)); } catch {}
+        updateBtn();
+        audio.play().catch(() => {});
+      });
+
+      function updateBtn() {
+        btn.textContent = audio.muted ? '🔇' : '🔊';
+        btn.setAttribute('aria-label', audio.muted ? 'Play background music' : 'Mute background music');
+      }
+    })();
+  </script>
 </body>
 </html>
