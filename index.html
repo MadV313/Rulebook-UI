@@ -117,9 +117,14 @@
     .audio-toggle:hover { box-shadow: 0 0 10px #00ffff; }
   </style>
 
-  <!-- Token/API boot + link propagation -->
+  <!-- 🔧 Enhancement pack: token/api propagation + BGM helper (optional) -->
+  <script src="scripts/rulebookEnhancements.js" defer></script>
+
+  <!-- Token/API boot + link propagation (fallback if enhancements script is absent) -->
   <script>
     (function () {
+      if (window.RulebookEnhancements) return; // enhancement script will own this if loaded
+
       const qs = new URLSearchParams(location.search);
       const tokenFromUrl = qs.get('token') || '';
       const apiFromUrl = (qs.get('api') || '').replace(/\/+$/, '');
@@ -203,7 +208,7 @@
   <div class="snow-effect"></div>
 
   <!-- 🔗 Back to Hub Button -->
-  <a href="https://madv313.github.io/HUB-UI/" class="back-to-hub" id="backToHub" data-pass-params>← Back to Hub</a>
+  <a href="https://madv313.github.io/HUB-UI/" class="back-to-hub sv13-link" id="backToHub" data-pass-params>← Back to Hub</a>
 
   <h1>SV13 TCG RULEBOOK</h1>
 
@@ -314,8 +319,10 @@
   <button id="rbAudioToggle" class="audio-toggle" aria-label="Mute background music">🔇</button>
 
   <script>
-    // Lightweight autoplay-safe music control
+    // Lightweight autoplay-safe music control (fallback if enhancements script is absent)
     (function setupRulebookMusic() {
+      if (window.RulebookEnhancements) return; // enhancement script will handle BGM + toggle
+
       const audio = document.getElementById('rb-bgm');
       const btn   = document.getElementById('rbAudioToggle');
       if (!audio || !btn) return;
