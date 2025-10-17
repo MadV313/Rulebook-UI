@@ -124,35 +124,77 @@
       const tokenFromUrl = qs.get('token') || '';
       const apiFromUrl = (qs.get('api') || '').replace(/\/+$/, '');
 
-      // Persist/reuse token
+      // Persist/reuse token & api
       let token = tokenFromUrl;
+      let api = apiFromUrl;
       try {
         if (!token) token = localStorage.getItem('sv13.token') || '';
+        if (!api)   api   = localStorage.getItem('sv13.api') || '';
         if (tokenFromUrl) localStorage.setItem('sv13.token', tokenFromUrl);
+        if (apiFromUrl)   localStorage.setItem('sv13.api', apiFromUrl);
       } catch {}
 
       // Expose for any future scripts (if you add stats/rpc later)
       window.PLAYER_TOKEN = token;
-      window.API_BASE = apiFromUrl || '/api';
+      window.API_BASE = api || '/api';
+      window.UI_BASE = location.origin;
 
-      function withParams(href) {
+      // Whitelist for auto-parameter pass-through (edit as needed)
+      const PASS_HOSTS = [
+        'https://madv313.github.io/HUB-UI/',
+        'https://madv313.github.io/Player-Stats-UI/',
+        'https://madv313.github.io/Stats-Leaderboard-UI/',
+        // Add your Duel UI host if different from this Rulebook host:
+        // 'https://your-duel-ui-host.example/',
+      ];
+
+      function isWhitelisted(href) {
+        try {
+          const u = new URL(href, location.origin);
+          // Same-origin relative links: allow
+          if (u.origin === location.origin) return true;
+          // Explicit allowed external hosts:
+          return PASS_HOSTS.some(prefix => u.href.startsWith(prefix));
+        } catch {
+          // Non-parsable → treat as relative; allow
+          return true;
+        }
+      }
+
+      function addParamsToUrl(href) {
         try {
           const u = new URL(href, location.origin);
           if (token) u.searchParams.set('token', token);
-          if (apiFromUrl) u.searchParams.set('api', apiFromUrl);
+          if (api)   u.searchParams.set('api', api);
           return u.toString();
         } catch {
           const sep = href.includes('?') ? '&' : '?';
           const parts = [];
           if (token) parts.push('token=' + encodeURIComponent(token));
-          if (apiFromUrl) parts.push('api=' + encodeURIComponent(apiFromUrl));
+          if (api)   parts.push('api=' + encodeURIComponent(api));
           return parts.length ? href + sep + parts.join('&') : href;
         }
       }
 
       document.addEventListener('DOMContentLoaded', () => {
+        // 1) Specific known button
         const hub = document.getElementById('backToHub');
-        if (hub && hub.href) hub.href = withParams(hub.href);
+        if (hub && hub.href) hub.href = addParamsToUrl(hub.href);
+
+        // 2) Any link marked with data-pass-params or class .sv13-link
+        const marked = document.querySelectorAll('a[data-pass-params], a.sv13-link');
+        marked.forEach(a => {
+          if (!a.href) return;
+          a.href = addParamsToUrl(a.href);
+        });
+
+        // 3) All anchors that are whitelisted or same-origin
+        const all = document.querySelectorAll('a[href]');
+        all.forEach(a => {
+          if (!a.href) return;
+          if (!isWhitelisted(a.href)) return;
+          a.href = addParamsToUrl(a.href);
+        });
       });
     })();
   </script>
@@ -161,25 +203,28 @@
   <div class="snow-effect"></div>
 
   <!-- 🔗 Back to Hub Button -->
-  <a href="https://madv313.github.io/HUB-UI/" class="back-to-hub" id="backToHub">← Back to Hub</a>
+  <a href="https://madv313.github.io/HUB-UI/" class="back-to-hub" id="backToHub" data-pass-params>← Back to Hub</a>
 
   <h1>SV13 TCG RULEBOOK</h1>
 
   <div class="section">
     <h2>1. Linking Your Deck</h2>
     <p>Before doing anything else, you must link your saved deck to your Discord account. Use:</p>
-    <code>/link deck [your JSON array]</code>
-    <p>This enables your deck for duels, card collection tracking, and trading.</p>
+    <code>/linkdeck [your JSON array]</code>
+    <p>This enables your deck for duels, card collection tracking, buying and trading.</p>
   </div>
 
   <div class="section">
     <h2>2. Card Collection</h2>
     <p>All players start with 0 cards. You can earn cards by purchasing packs or receiving admin rewards.</p>
     <ul>
-      <li><code>/buycard</code> — Purchase a 3-card pack for 3 coins</li>
-      <li><code>/givecard</code> — Admin-only card distribution</li>
+      <li><code>/mycards</code> — Manage your collection (max: 250 cards)</li>
+      <li><code>/buycard</code> — Purchase a 3-card pack for 3 coins once per day</li>
       <li><code>/sellcard</code> — Sell up to 5 cards per day</li>
-      <li><code>/discard</code> — Destroy cards to manage your collection (max: 250 cards)</li>
+      <li><code>/tradecard</code> — Select up to 3 to trade with another selected player</li>
+      <li><code>/duelcard</code> — Admin-only card distribution Give/Take a selected card to a selected player</li>
+      <li><code>/cardpack</code> — Admin-only card pack distribution gives a 3-card pack to a selected player</li>
+      <li><code>return to hub button</code> — Returns player to main hub to navigate other pages</li>
     </ul>
   </div>
 
@@ -187,17 +232,19 @@
     <h2>3. Deck Building</h2>
     <p>Use the Deck Builder UI to create your active duel deck (20–40 cards). Once finalized:</p>
     <ul>
-      <li><code>/save</code> — Save your deck for PvP use</li>
-      <li><code>/viewdeck</code> — View your deck via the builder</li>
+      <li><code>/mydeck</code> — Manage your deck (min: 20 cards, max: 40 cards)</li>
+      <li><code>save button</code> — Save your deck for PvP use</li>
+      <li><code>viewdeck</code> — View your deck via the builder</li>
+      <li><code>return to hub button</code> — Returns player to main hub to navigate other pages</li>
     </ul>
   </div>
 
   <div class="section">
     <h2>4. Trading</h2>
     <ul>
-      <li><code>/trade @user</code> — Propose a trade of up to 3 cards</li>
-      <li><code>/accept</code> — Accept a pending trade</li>
-      <li><code>/deny</code> — Deny a trade offer</li>
+      <li><code>/tradecard @user</code> — Propose a trade of up to 3 cards with a selected player, selected player will be sent a follow up DM</li>
+      <li><code>accept button in DM</code> — Accept a pending trade</li>
+      <li><code>deny button in DM</code> — Deny a trade offer</li>
     </ul>
   </div>
 
@@ -205,9 +252,13 @@
     <h2>5. Dueling</h2>
     <ul>
       <li><code>/challenge @player</code> — Initiate a duel (must both have linked decks)</li>
-      <li><code>/practice</code> — Start a bot duel (Admins only)</li>
-      <li><code>/forfeit</code> — End a duel early</li>
-      <li><code>/victory</code> — Admin-only manual win declaration</li>
+      <li><code>/practice</code> — Start a bot duel (Admins only for now)</li>
+      <li><code>draw button</code> — Player initiates their turn by drawing a card from their deck</li>
+      <li><code>play button</code> — Plays a selected card from the players hand to the field</li>
+      <li><code>discard button</code> — Discards a selected card from the players hand and moves it to their discard pile</li>
+      <li><code>end turn button</code> — Ends the players turn initiating the next players turn</li>
+      <li><code>return to hub button</code> — Returns player to main hub to navigate other pages</li>
+
     </ul>
     <p>Duels are turn-based and use animated card visuals and effects. Each player starts at 200 HP.</p>
   </div>
@@ -215,9 +266,9 @@
   <div class="section">
     <h2>6. Spectator System</h2>
     <ul>
-      <li><code>/watch</code> — View an ongoing duel</li>
-      <li><code>/leave</code> — Leave spectator view</li>
-      <li><code>/viewlog</code> — View who’s currently spectating</li>
+      <li><code>/spectate</code> — View an ongoing duel</li>
+      <li><code>leave button</code> — Leave spectator view</li>
+      <li><code>return to hub button</code> — Returns player to main hub to navigate other pages</li>
     </ul>
   </div>
 
@@ -226,8 +277,10 @@
     <p>General:</p>
     <ul>
       <li><code>/coin</code> — View your coin balance</li>
+      <li><code>/duelcoin</code> — Admin-only coin distribution Give/Take a selected coin amount to a selected player</li>
       <li><code>/clear</code> — Admin-only message clear</li>
-      <li><code>/takecard</code> — Admin-only card removal</li>
+      <li><code>/unlink deck</code> — Admin-only unlinks deck duelbot data from a selected player</li>
+      <li><code>/viewlinked</code> — Admin-only displays all users currently linked</li>
     </ul>
   </div>
 
@@ -237,6 +290,15 @@
       <li><strong>Rangefinder + Longhorn:</strong> View opponent’s hand, then follow up with a precision sniper attack.</li>
       <li><strong>Pox Vial + Infected Howler:</strong> Poison synergy combo that triggers draw + area debuff.</li>
       <li><strong>Bear Trap + Combat Boots:</strong> Nullifies trap damage based on gear tag mechanics.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>9. Player Stats</h2>
+    <ul>
+      <li><code>/my stats</code> — Takes the player to their personal stats page</li>
+      <li><code>/duelstats</code> — Takes the player to the global stats UI</li>
+      <li><code>return to hub button</code> — Returns player to main hub to navigate other pages</li>
     </ul>
   </div>
 
