@@ -1,17 +1,46 @@
-body {
-  /* standard dark background */
-  background: #1a1a1a;
-  position: relative;
+/* ——— Rulebook-specific niceties (safe to add to root styles.css) ——— */
+
+/* Tiny floating audio toggle */
+.audio-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  border: 1px solid #00ffff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  transition: box-shadow .2s ease, transform .08s ease;
 }
 
+.audio-toggle:hover { box-shadow: 0 0 10px #00ffff; }
+.audio-toggle:active { transform: scale(0.98); }
+
+/* Make sure snowfall sits behind content on every page using it */
 .snow-effect {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background: url('images/effects/snowfall.gif') center center / cover no-repeat;
   opacity: 0.35;
-  z-index: 0;
+  z-index: 0;        /* content must render above this */
   pointer-events: none;
+}
+
+/* Respect safe areas on iOS when the toggle sits near screen edges */
+@supports(padding: max(0px)) {
+  .audio-toggle {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Optional: reduce visuals for users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  .audio-toggle { transition: none; }
 }
